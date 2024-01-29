@@ -1,4 +1,6 @@
+using ResySniper.Client;
 using ResySniper.Configuration;
+using ResySniper.Workflow;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,11 +11,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// configure strongly typed settings object
-builder.Services.Configure<ResyConfig>(builder.Configuration.GetSection("AppSettings"));
-
 // configure DI for application services
-//builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddSingleton<ResyConfig>();
+builder.Services.AddScoped<IResyClient, ResyClient>();
 
 var app = builder.Build();
 
@@ -34,5 +34,14 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var resyClient = scope.ServiceProvider.GetRequiredService<IResyClient>();
+    var resyConfig = app.Services.GetRequiredService<ResyConfig>();
+
+    var reservationWorkflow = new ReservationWorkflow(resyClient, resyConfig);
+    await reservationWorkflow.ExecuteSniperWorkflow();
+}
 
 app.Run();
